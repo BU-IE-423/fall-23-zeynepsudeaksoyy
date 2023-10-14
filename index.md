@@ -1,7 +1,6 @@
-## Welcome to GitHub Pages
+## Welcome to Zeynep Sude Aksoy's Github Pages
 
 You can use the [editor on GitHub](https://github.com/BU-IE-423/fall-23-ilaydacelenkk/edit/main/index.md) to maintain and preview the content for your website in Markdown files.
-Zeynep Sude Aksoy
 
 Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
 
