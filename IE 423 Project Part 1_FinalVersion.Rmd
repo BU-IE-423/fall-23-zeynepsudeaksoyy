@@ -1,0 +1,1683 @@
+---
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+# IE 423: QUALITY ENGINEERING
+
+**Project Part 1**
+
+**02.11.2023**
+
+***Zeynep Sude Aksoy -- 2020402108***
+
+***Hasancan Cebeci -- 2019402036***
+
+In this project stock prices data in long format are used to draw
+inferences from time series data. 6 different stocks from 3 diverse
+sectors are selected from the data that comprises the closing prices of
+selected stocks from Borsa Istanbul. The following R-code are written to
+ensure that these stocks span at least 2 years of data.
+
+```{r}
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+
+# Calculate the total number of unique timestamps for each stock
+stock_data <- stocks %>%
+  group_by(short_name) %>%
+  summarize(total_timestamps = n_distinct(timestamp))
+
+# Define the threshold for 2 years of data 
+threshold <- 365 * 26 *2  # 2 years of data since there are 26 data in each day from 06.45 to 14.30
+
+# Filter the stocks with at least 2 years of data
+selected_stocks <- stock_data %>%
+  filter(total_timestamps >= threshold)
+
+# Randomly choose 6 stocks from the filtered list
+selected_stocks <- selected_stocks %>%
+  sample_n(6)
+```
+
+As an output of data 6 stocks are selected as below.
+
+"ISCTR": Banking Sector
+
+"SKBNK": Banking Sector
+
+"AKBNK": Banking Sector
+
+"BRISA": Industry Sector
+
+"BANVT": Food Sector
+
+"AKSA": Energy Sector
+
+To identify outliers in the data, 2 different approach are employed.
+Firstly, for each month in data, boxplots are generated for the chosen
+indices. To discern any outliers based on Interquartile Range(IQR), this
+method can be used.
+
+As an alternative approach, 3-sigma rule cane implemented. The data is
+then visualized using a scatter plot, where outliers are plotted in red
+and non-outliers in blue.
+
+To explore the reasons behind the outliers in data, each selected stock
+data is studied one by one
+
+[**ISCTR**]{.underline}
+
+The generated monthly boxplots of the stock data of Turkiye Is Bankası
+from 2012-09 to 2019-07 is below:
+
+```{r}
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(ggplot2)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(as.Date(timestamp), "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- c("ISCTR")
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+
+# Create boxplots 
+ggplot(selected_data, aes(x = month, y = price, group = month)) +
+  geom_boxplot() +
+  labs(title = paste("Monthly Boxplots for Chosen Indices -", paste(chosen_indices, collapse = ", ")),
+       x = "Month",
+       y = "Price") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Moreover, the plot that shows data points falling outside the range of
+(mean - 3standard deviation) and (mean + 3standard deviation) as
+outliers is below. The data points that fall too far from the range and
+their respective year and months are noted.
+
+```{r}
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# 3 sigma Rules
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = as.Date(timestamp) %>% format("%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- "ISCTR"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean and standard deviation for each series
+outliers <- selected_data %>%
+  group_by(short_name, month) %>%
+  summarise(
+    monthly_mean = mean(price),
+    monthly_std = sd(price)
+  ) %>%
+  ungroup()
+
+# Flag outliers for each series
+outliers <- outliers %>%
+  left_join(selected_data, by = c("short_name", "month")) %>%
+  mutate(
+    lower_limit = monthly_mean - 3 * monthly_std,
+    upper_limit = monthly_mean + 3 * monthly_std,
+    is_outlier = price < lower_limit | price > upper_limit
+  )
+
+library(ggplot2)
+
+ggplot(outliers, aes(x = month, y = price, color = is_outlier)) +
+  geom_point() +
+  labs(title = paste("Outliers Based on 3-Sigma Rule -", chosen_indices),
+       x = "Month",
+       y = "Price",
+       color = "Outlier") +
+  scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red")) +
+  theme_minimal() +
+  theme(legend.position = "top")
+
+```
+
+There should be reasons behind the devaitions occured in studided data.
+To shed light on the reasons, each outlier data should be examined
+separately.
+
+**May 2013 :** In the stock price data of ISTCR, there is an extreme
+outlier in May 2013. By looking at the outliers in the data of other
+stocks in any sector, it can be seen that there is a similar outlier
+occurs in May 2013 in their data as well. The possible reason behind
+this annomalie can be data errors, either in the recording of the stock
+prices or in the data processing.
+
+**Dec 2014 :** In December, annual CPI inflation was realized as 8.17%,
+the lowest level of the last ten months, more favorable than expected.
+Hence this may cause an unexpected price increase in stock market which
+causes 2 outliers point in data.
+
+Also, in November 2014, there is significant decrease in search volume
+data of ISTCR stock. After November, in December 2014, the search volume
+increases significantly. The popuarity of stock increases for some
+reason hence the price fluctuates before it comes to equilibrium.
+
+**Dec 2015:** In December, the Turkish lira depreciated by 25% against
+the US dollar and 12% against the euro. As can be seen in the graph
+below, the trading volume in BIST 30 and BIST 100 stocks, including
+İşbank, declined towards the end of the year. This decline may be the
+reason for the negative outlier observed in the data.
+
+**May 2016:** The reason of the outlier can be a drastic increase in the
+value of BIST 100 stocks in May 2016 which İş Bankası one of them.
+
+![](vertopal_5d826e86495443ceb37c4e62c50d5b85/media/image4.png){width="4.275370734908137in"
+height="2.6252274715660544in"}
+
+**Feb 2018-June 2018:** As a result of the presidential and
+parliamentary elections held on June 24, 2018, a positive movement of TL
+was observed in the foreign exchange markets.
+
+In order to detect the potentail reasons of identified outliers,Google
+Trends search volume data of the corresponding stock and stock price
+data are correlated. To obtain search volume data from Google trends and
+compare it with stock price data in a plot, below code is used.
+
+```{r}
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+library(ggplot2)
+
+# Load the stocks data
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(timestamp, "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- "ISCTR"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean for ISCTR stock index
+outliers <- selected_data %>%
+  group_by(month) %>%
+  summarise(
+    monthly_mean = mean(price)
+  ) %>%
+  ungroup()
+
+# Load the trends data (modify the file path accordingly)
+trends <- read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/multiTimeline (5).csv")
+
+# Merge the datasets based on the "month" column
+combined_data <- left_join(outliers, trends, by = c("month" = "Ay"))
+
+scatter_plot <- ggplot(combined_data) +
+  geom_point(aes(x = month, y = monthly_mean, color = "Stock Data"), size = 3, na.rm = TRUE) +
+  geom_point(aes(x = month, y = IST.ISCTR, color = "Google Trends Data"), size = 3, na.rm = TRUE) +
+  labs(
+    x = "Months",
+    y = "Monthly Mean of Stock Data / Google Trends Data",
+    title = "Scatter Plot of Stock Data and Search Volume Data from Google Trends"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("Stock Data" = "red", "Google Trends Data" = "blue")) +
+  guides(color = guide_legend(title = "Data Source"))
+
+print(scatter_plot)
+```
+
+As it can be seen from the scatter plot of ISTCR search volume data that
+is obtained from Google Trends align with the monthly mean price of
+relating stock. Hence it can be concluded that search volume of the
+stock are really related to the price fluctuations of the stock.
+
+```{r}
+trends <- read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/multiTimeline (5).csv")
+# Load necessary libraries (if not already loaded)
+library(ggplot2)
+
+ggplot(data = trends, aes(x = Ay, y = IST.ISCTR)) +
+  geom_point() +
+  labs(x = "Month", y = "Search Volume", title = "Scatter Plot of Search Volume")
+```
+
+```{r}
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(timestamp, "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- "ISCTR"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean for each series
+mean_data <- selected_data %>%
+  group_by(month) %>%
+  summarise(
+    monthly_mean = mean(price)
+  ) %>%
+  ungroup()
+
+
+
+# Create a scatter plot of the monthly mean
+ggplot(mean_data, aes(x = month, y = monthly_mean)) +
+  geom_point() +  # Use geom_point for scatter plot
+  labs(
+    title = "Monthly Mean Price of ISCTR Stock ",
+    x = "Month",
+    y = "Mean Stock Price"
+  ) +
+  theme_minimal()
+
+```
+
+[**SKBNK**]{.underline}
+
+The generated monthly boxplots of the stock data of Şeker Bank from
+2012-09 to 2019-07 is below:
+
+```{r}
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(ggplot2)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(as.Date(timestamp), "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- c("SKBNK")
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+
+# Create boxplots 
+ggplot(selected_data, aes(x = month, y = price, group = month)) +
+  geom_boxplot() +
+  labs(title = paste("Monthly Boxplots for Chosen Indices -", paste(chosen_indices, collapse = ", ")),
+       x = "Month",
+       y = "Price") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Moreover, the plot that shows data points falling outside the range of
+(mean - 3standard deviation) and (mean + 3standard deviation) as
+outliers is below. The data points that fall too far from the range and
+their respective year and months are noted.
+
+```{r}
+
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# 3 sigma Rules
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = as.Date(timestamp) %>% format("%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- "SKBNK"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean and standard deviation for each series
+outliers <- selected_data %>%
+  group_by(short_name, month) %>%
+  summarise(
+    monthly_mean = mean(price),
+    monthly_std = sd(price)
+  ) %>%
+  ungroup()
+
+# Flag outliers for each series
+outliers <- outliers %>%
+  left_join(selected_data, by = c("short_name", "month")) %>%
+  mutate(
+    lower_limit = monthly_mean - 3 * monthly_std,
+    upper_limit = monthly_mean + 3 * monthly_std,
+    is_outlier = price < lower_limit | price > upper_limit
+  )
+
+library(ggplot2)
+
+ggplot(outliers, aes(x = month, y = price, color = is_outlier)) +
+  geom_point() +
+  labs(title = paste("Outliers Based on 3-Sigma Rule -", chosen_indices),
+       x = "Month",
+       y = "Price",
+       color = "Outlier") +
+  scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red")) +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+
+**May 2013:** As it is specified before the possible reason behind this
+annomalie can be data errors, either in the recording of the stock
+prices or in the data processing.
+
+**Dec 2013:** The reason behind the observed outlier in December 2013
+can be the fact that according to data obtained from Borsa Istanbul,
+after merger of VOB and VIOP, a record transaction volume of TL
+3,239,319,521 was occured in VIOP. According to ŞekerBank's solo balance
+sheet, ŞekerBank, which was the bank that grew and expanded its customer
+base the best during the period when Borsa Istanbul's trading volume
+record was broken, increased its share prices and net fee and commission
+revenues earned from users reached TL 174 million and its asset size
+grew by 22.78% compared to the same period of the previous year.
+
+**Mar -May 2016:** The main funding source of Şekerbank, which attaches
+importance to deposit development, is deposits. Despite the competitive
+environment, Şekerbank increased its deposits by 8.53% compared to the
+previous year and increased its shareholders' equity to TL 2,532,793
+thousand. This caused small jumps thanks to the news even though stock
+prices were on a downtrend. As a result, the capital adequacy ratio was
+realized as 13.11% in 2016 and at the same time, total assets decreased
+from 24.4 to 23.8%, which is one of the main reasons for the continued
+downward trend.
+
+**Aug 2017:** In August 2017, Şekerbank announced a partial spin-off of
+the company. This may be the reason for the deviation in stock prices.
+
+As it can be seen from the scatter plot of SKBNK search volume data that
+is obtained from Google Trends does not really align with the monthly
+mean price of relating stock.
+
+```{r}
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+library(ggplot2)
+
+# Load the stocks data
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(timestamp, "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- "SKBNK"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean for ISCTR stock index
+outliers <- selected_data %>%
+  group_by(month) %>%
+  summarise(
+    monthly_mean = mean(price)
+  ) %>%
+  ungroup()
+
+# Load the trends data (modify the file path accordingly)
+trends <- read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/multiTimeline (3).csv")
+
+# Merge the datasets based on the "month" column
+combined_data <- left_join(outliers, trends, by = c("month" = "Ay"))
+
+scatter_plot <- ggplot(combined_data) +
+  geom_point(aes(x = month, y = monthly_mean, color = "Stock Data"), size = 3, na.rm = TRUE) +
+  geom_point(aes(x = month, y = IST.SKBNK, color = "Google Trends Data"), size = 3, na.rm = TRUE) +
+  labs(
+    x = "Months",
+    y = "Monthly Mean of Stock Data / Google Trends Data",
+    title = "Scatter Plot of Stock Data and Search Volume Data from Google Trends"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("Stock Data" = "red", "Google Trends Data" = "blue")) +
+  guides(color = guide_legend(title = "Data Source"))
+
+print(scatter_plot)
+```
+
+```{r}
+trends <- read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/multiTimeline (3).csv")
+# Load necessary libraries (if not already loaded)
+library(ggplot2)
+
+ggplot(data = trends, aes(x = Ay, y = IST.SKBNK)) +
+  geom_point() +
+  labs(x = "Month", y = "Search Volume", title = "Scatter Plot of Search Volume")
+```
+
+```{r}
+
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(timestamp, "%Y-%m"))
+
+chosen_indices <- "SKBNK"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean for each series
+mean_data <- selected_data %>%
+  group_by(month) %>%
+  summarise(
+    monthly_mean = mean(price)
+  ) %>%
+  ungroup()
+
+
+
+# Create a scatter plot of the monthly mean
+ggplot(mean_data, aes(x = month, y = monthly_mean)) +
+  geom_point() +  # Use geom_point for scatter plot
+  labs(
+    title = "Monthly Mean Price of SKBNK Stock ",
+    x = "Month",
+    y = "Mean Stock Price"
+  ) +
+  theme_minimal()
+```
+
+[**AKBNK**]{.underline}
+
+The generated monthly boxplots of the stock data of Akbank from 2012-09
+to 2019-07 is below:
+
+```{r}
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(ggplot2)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(as.Date(timestamp), "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- c("AKBNK")
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+
+# Create boxplots 
+ggplot(selected_data, aes(x = month, y = price, group = month)) +
+  geom_boxplot() +
+  labs(title = paste("Monthly Boxplots for Chosen Indices -", paste(chosen_indices, collapse = ", ")),
+       x = "Month",
+       y = "Price") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Moreover, the plot that shows data points falling outside the range of
+(mean - 3standard deviation) and (mean + 3standard deviation) as
+outliers is below. The data points that fall too far from the range and
+their respective year and months are noted.
+
+```{r}
+
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# 3 sigma Rules
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = as.Date(timestamp) %>% format("%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- "AKBNK"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean and standard deviation for each series
+outliers <- selected_data %>%
+  group_by(short_name, month) %>%
+  summarise(
+    monthly_mean = mean(price),
+    monthly_std = sd(price)
+  ) %>%
+  ungroup()
+
+# Flag outliers for each series
+outliers <- outliers %>%
+  left_join(selected_data, by = c("short_name", "month")) %>%
+  mutate(
+    lower_limit = monthly_mean - 3 * monthly_std,
+    upper_limit = monthly_mean + 3 * monthly_std,
+    is_outlier = price < lower_limit | price > upper_limit
+  )
+
+library(ggplot2)
+
+ggplot(outliers, aes(x = month, y = price, color = is_outlier)) +
+  geom_point() +
+  labs(title = paste("Outliers Based on 3-Sigma Rule -", chosen_indices),
+       x = "Month",
+       y = "Price",
+       color = "Outlier") +
+  scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red")) +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+
+**May 2013:** As it is specified before the possible reason behind this
+annomalie can be data errors, either in the recording of the stock
+prices or in the data processing.
+
+**June 2015:** June 7 elections are the most likely reason for the
+negative outlier in the June 2015 data. The 13-year one-party rule,
+which started with the AK Party coming to power on November 3, 2002,
+ended after the June 7 parliamentary elections. The political
+uncertainties following the election results put great pressure on the
+market. These uncertainties caused the stock markets in Borsa Istanbul
+to lose 8.15 percent on average compared to the previous close.
+
+**November 2018:** The stock market investor, the loser of 2018,
+suffered an average loss of 20.9 percent as the downward trend that
+started from the all-time high of 121,960 seen by the BIST 100 index in
+the first month of the year continued throughout the year. Thus, 2018
+was recorded as the worst year for stock investors since 2011. This
+stock market crisis can be the reason of the negative outlier in
+November 2018
+
+As it can be seen from the scatter plot of AKBNK search volume data that
+is obtained from Google Trends does not really align with the monthly
+mean price of relating stock.
+
+```{r}
+
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+library(ggplot2)
+
+# Load the stocks data
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(timestamp, "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- "AKBNK"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean for ISCTR stock index
+outliers <- selected_data %>%
+  group_by(month) %>%
+  summarise(
+    monthly_mean = mean(price)
+  ) %>%
+  ungroup()
+
+# Load the trends data (modify the file path accordingly)
+trends <- read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/multiTimeline (4).csv")
+
+# Merge the datasets based on the "month" column
+combined_data <- left_join(outliers, trends, by = c("month" = "Ay"))
+
+scatter_plot <- ggplot(combined_data) +
+  geom_point(aes(x = month, y = monthly_mean, color = "Stock Data"), size = 3, na.rm = TRUE) +
+  geom_point(aes(x = month, y = IST.AKBNK, color = "Google Trends Data"), size = 3, na.rm = TRUE) +
+  labs(
+    x = "Months",
+    y = "Monthly Mean of Stock Data / Google Trends Data",
+    title = "Scatter Plot of Stock Data and Search Volume Data from Google Trends"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("Stock Data" = "red", "Google Trends Data" = "blue")) +
+  guides(color = guide_legend(title = "Data Source"))
+
+print(scatter_plot)
+```
+
+```{r}
+
+trends <- read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/multiTimeline (4).csv")
+# Load necessary libraries (if not already loaded)
+library(ggplot2)
+
+ggplot(data = trends, aes(x = Ay, y = IST.AKBNK)) +
+  geom_point() +
+  labs(x = "Month", y = "Search Volume", title = "Scatter Plot of Search Volume")
+
+```
+
+```{r}
+
+stocks <- read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(timestamp, "%Y-%m"))
+
+chosen_indices <- "AKBNK"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean for each series
+mean_data <- selected_data %>%
+  group_by(month) %>%
+  summarise(
+    monthly_mean = mean(price)
+  ) %>%
+  ungroup()
+
+
+
+# Create a scatter plot of the monthly mean
+ggplot(mean_data, aes(x = month, y = monthly_mean)) +
+  geom_point() +  # Use geom_point for scatter plot
+  labs(
+    title = "Monthly Mean Price of AKBNK Stock ",
+    x = "Month",
+    y = "Mean Stock Price"
+  ) +
+  theme_minimal()
+  
+```
+
+[**BANVT**]{.underline}
+
+The generated monthly boxplots of the stock data of Banvit from 2012-09
+to 2019-07 is below:
+
+```{r}
+stocks = read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(ggplot2)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(as.Date(timestamp), "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- c("BANVT")
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+
+# Create boxplots 
+ggplot(selected_data, aes(x = month, y = price, group = month)) +
+  geom_boxplot() +
+  labs(title = paste("Monthly Boxplots for Chosen Indices -", paste(chosen_indices, collapse = ", ")),
+       x = "Month",
+       y = "Price") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+```
+
+Moreover, the plot that shows data points falling outside the range of
+(mean - 3standard deviation) and (mean + 3standard deviation) as
+outliers is below. The data points that fall too far from the range and
+their respective year and months are noted.
+
+```{r}
+
+stocks = read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# 3 sigma Rules
+# Load necessary libraries (if not already loaded)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = as.Date(timestamp) %>% format("%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- "BANVT"
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+# Calculate monthly mean and standard deviation for each series
+outliers <- selected_data %>%
+  group_by(short_name, month) %>%
+  summarise(
+    monthly_mean = mean(price),
+    monthly_std = sd(price)
+  ) %>%
+  ungroup()
+
+# Flag outliers for each series
+outliers <- outliers %>%
+  left_join(selected_data, by = c("short_name", "month")) %>%
+  mutate(
+    lower_limit = monthly_mean - 3 * monthly_std,
+    upper_limit = monthly_mean + 3 * monthly_std,
+    is_outlier = price < lower_limit | price > upper_limit
+  )
+
+library(ggplot2)
+
+ggplot(outliers, aes(x = month, y = price, color = is_outlier)) +
+  geom_point() +
+  labs(title = paste("Outliers Based on 3-Sigma Rule -", chosen_indices),
+       x = "Month",
+       y = "Price",
+       color = "Outlier") +
+  scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red")) +
+  theme_minimal() +
+  theme(legend.position = "top")
+  
+```
+
+**2013 January**: There is significant increase in search trend of
+'banvit'. This might be reason of tihs outlier **2013 May**: This is
+data error as it is denoted above. **2014 February**: Little **2014
+October**: **2015 May**: Again there is a signiificant jump in search
+trend of 'banvit'. 2015 June : Although the search trend goes back
+normal level. This lose of interest might have ended up in selling the
+stocks. 2016 April : 2016 May : 2017 February - 2017 March: The search
+trend of 'tavuk' increases significantly between 2017 December and 2017
+May. This TALEP might be reason in the fluctuations in the stock price.
+2017 December -2018 January: Again around this dates of search trend of
+'tavuk', search trend starts increase a few months ago starting from
+2017 August to 2018 May. This shows that for the interest for that
+keyword. When we look at the real stock price, there is a strong
+decrease after 2017 October. DEVAM ET HABER BAK 2018 Augus : Big drop in
+'tavuk' trend. 2018 November : There is a significant increase in
+'tavuk' trend 2019 January : Increase in trend continues.
+
+```{r}
+
+# For banvit_data
+banvit_data = read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/banvit.csv", sep = ';', header = FALSE, stringsAsFactors = FALSE)
+
+# remove the unnecessary parts
+banvit_data <- banvit_data[-c(1, 2,3), ]
+
+# check if there is NA values in the data, if there is make them 0
+banvit_data$V2 <- ifelse(is.na(banvit_data$V2), 0, banvit_data$V2)
+
+# convert categorical data into numerical data
+banvit_data$V2 <- as.numeric(banvit_data$V2)
+
+# scatter plot
+ggplot(banvit_data, aes(x = V1, y = V2)) +
+  geom_point() +
+  labs(title = "Banvit Search Over Time", x = "Date", y = "Value") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+ 
+ # For tavuk_data
+tavuk_data = read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/tavuk.csv", sep = ';', header = FALSE, stringsAsFactors = FALSE)
+
+# remove the unnecessary parts
+tavuk_data <- tavuk_data[-c(1, 2,3), ]
+
+# scatter plot
+ggplot(tavuk_data, aes(x = V1, y = V2)) +
+  geom_point() +
+  labs(title = "Scatter Plot of Tavuk Data Over Time", x = "Date", y = "Value") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+[**BRISA**]{.underline}
+
+The generated monthly boxplots of the stock data of Brisa from 2012-09
+to 2019-07 is below:
+```{r}
+stocks = read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(ggplot2)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(as.Date(timestamp), "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- c("BRISA")
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+
+# Create boxplots 
+ggplot(selected_data, aes(x = month, y = price, group = month)) +
+  geom_boxplot() +
+  labs(title = paste("Monthly Boxplots for Chosen Indices -", paste(chosen_indices, collapse = ", ")),
+       x = "Month",
+       y = "Price") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+```
+
+2012 November: Reason might be the shrinking market.
+
+2013 March : Big jump on search trends of 'brisa'. Interest in BRISA
+might have caused increase in stock price.
+
+2014 January - 2013 December: There is a decrase in search trends of
+'lastik' at 2013 December. Therefore there may be decrease in tire
+sales. Moreover, these decreasing outliers might be the outcome of the
+contraction in the markets in second half of the 2013.
+
+2014 December: Although BRISA got an award because of its Strategic
+Management and probably this award led to strong increase on its stock
+price, there is a outlier. The reason might be sales to liquidize the
+long positions made by market makers.
+
+2015 July :No explination. This might be random.
+
+2016 May : Increase in search trends of 'brisa' might have caused this.
+
+2018 May : Although BRISA have increased its sales, their value
+decreased. This outlier might be reason of worse stock market. According
+to the reports BIST100 lost 20% of its value in 2018.
+
+2018 September - 2018 October : Search trends of 'brisa' increases
+significantly on these months. This might be reason for this outlier.
+
+2018 December : Although search trend for 'lastik' increases, search
+trend of 'brisa' starts to lower. This lost in interest might be reason
+of this outlier.
+
+2019 May - 2019 June : These outliers might have occured due to decrease
+in 'brisa' trend.
+
+```{r}
+
+brisa_search = read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/brisa.csv", sep = ';', header = FALSE, stringsAsFactors = FALSE)
+
+# removing unnecessary parts
+brisa_search <- brisa_search[-c(1, 2,3), ]
+
+# scatter plot
+ggplot(brisa_search, aes(x = V1, y = V2)) +
+ geom_point() +   labs(title = "'Brisa' Search Over Time", x = "Date", y = "Value") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# For lastik_data
+lastik_data = read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/lastik.csv", sep = ';', header = FALSE, stringsAsFactors = FALSE)
+
+# remove the unnecessary parts
+lastik_data <- lastik_data[-c(1, 2,3), ]
+
+# scatter plot
+ggplot(lastik_data, aes(x = V1, y = V2)) +
+ geom_point() +   labs(title = "'lastik' Search Over Time", x = "Date", y = "Value") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ 
+```
+
+[**AKSA**]{.underline}
+
+The generated monthly boxplots of the stock data of Aksa from 2012-09
+to 2019-07 is below:
+
+```{r}
+stocks = read.csv("C:/Users/Zeynep Sude Aksoy/OneDrive/Masaüstü/ie 423 project/all_ticks_long.csv")
+# Load necessary libraries (if not already loaded)
+library(ggplot2)
+library(dplyr)
+
+# Convert the timestamp column to a Date object and extract the month
+stocks <- stocks %>%
+  mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+         month = format(as.Date(timestamp), "%Y-%m"))
+
+# Select data for the chosen indices
+chosen_indices <- c("AKSA")
+selected_data <- stocks %>% filter(short_name %in% chosen_indices)
+
+
+# Create boxplots 
+ggplot(selected_data, aes(x = month, y = price, group = month)) +
+  geom_boxplot() +
+  labs(title = paste("Monthly Boxplots for Chosen Indices -", paste(chosen_indices, collapse = ", ")),
+       x = "Month",
+       y = "Price") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+```
+
+2013 December : There is significant increase in search trend of
+'IST:AKSA' and slight increase in search trend of 'akrilik'. They might
+be reason of this outlier.
+
+2014 April - 2014 May : Accordingly, the search trend of 'IST:AKSA'
+decreases significantly from 2013 December to 2014 April. These point
+represents the bottom level of this trend. Therefore, occurance of
+outliers are expected.
+
+2015 June : This fluctiation might have occured because of the lawsuit
+was filed against the company.
+
+2016 June : after the control of the ministry of enviroment and
+urbanization results were positive therefore the stocks price might have
+increased
+
+2018 April - 2018 May : This outliers probably occured because of the
+contraction in the company
+
+```{r}
+
+
+# For IST:AKSA_data
+IST_AKSA_data = read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/IST-AKSA.csv", sep = ';', header = FALSE, stringsAsFactors = FALSE)
+
+# remove the unnecessary parts
+IST_AKSA_data <- IST_AKSA_data[-c(1, 2,3), ]
+
+# check if there is NA values in the data, if there is make them 0
+IST_AKSA_data$V2 <- ifelse(is.na(IST_AKSA_data$V2), 0, IST_AKSA_data$V2)
+
+# convert categorical data into numerical data
+IST_AKSA_data$V2 <- as.numeric(IST_AKSA_data$V2)
+
+ggplot(IST_AKSA_data, aes(x = V1, y = V2)) +
+ geom_point() +   labs(title = "'IST:AKSA' Search Over Time", x = "Date", y = "Value") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ 
+
+#  For akrilik_data
+akrilik_data = read.csv("C:/Users/Zeynep Sude Aksoy/Downloads/akrilik.csv", sep = ';', header = FALSE, stringsAsFactors = FALSE)
+
+# remove the unnecessary parts
+akrilik_data <- akrilik_data[-c(1, 2,3), ]
+
+ggplot(akrilik_data, aes(x = V1, y = V2)) +
+ geom_point() +   labs(title = "'akrilik' Search Over Time", x = "Date", y = "Value") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+\`\`\`
+
+**APPENDIX**
+
+-   **ChatGPT is utilized, prompt and resulting response of these models
+    can be seen below**
+
+Stock Selection for Analysis
+
+October 28, 2023
+
+The data you wıll use comprises the closing prices of selected stocks
+from Borsa İstanbul. The frequency of the observations is 15 minutes.
+Between these stocks:
+
+AEFES AKBNK AKSA AKSEN ALARK ALBRK ANACM ARCLK ASELS ASUZU AYGAZ BAGFS
+BANVT BRISA CCOLA CEMAS ECILC EREGL FROTO GARAN GOODY GUBRF HALKB ICBCT
+ISCTR ISDMR ISFIN ISYAT KAREL KARSN KCHOL KRDMB KRDMD MGROS OTKAR PARSN
+PETKM PGSUS PRKME SAHOL SASA SISE SKBNK SODA TCELL THYAO TKFEN TOASO
+TRKCM TSKB TTKOM TUKAS TUPRS USAK VAKBN VESTL YATAS YKBNK YUNSA ZOREN
+
+Choose at least 6 stocks, ensuring:
+
+◦ They are from at least 3 different sectors (e.g., Banking, Industry,
+etc.).
+
+◦ The data spans at least 2 years for each index.
+
+ChatGPT
+
+I'm sorry for any inconvenience, but I cannot access real-time data or
+specific data sources. However, I can provide you with a list of 6
+stocks that you can use as a starting point. You can then acquire
+historical stock price data for these stocks from a financial data
+provider or a stock exchange like Borsa İstanbul. Make sure to select
+stocks from different sectors and ensure that the data spans at least 2
+years for each stock.
+
+Here's a list of 6 stocks to consider:
+
+Banking Sector:
+
+AKBNK (Akbank)
+
+VAKBN (VakıfBank)
+
+Industry Sector:
+
+AEFES (Anadolu Efes)
+
+ARCLK (Arçelik)
+
+Energy Sector:
+
+PETKM (Petkim)
+
+Please note that this is just a starting point, and you should conduct
+your own research and data collection to ensure that the stocks meet
+your criteria and have the desired historical data available. You can
+use financial data websites or contact your local stock exchange for
+access to historical stock price data for the selected stocks.
+
+To find the data that has at least 2 years of observation, we will use
+'long data'. I scanned the data
+
+\> stocks
+
+short_name timestamp price
+
+1 AEFES 2012-09-17T06:45:00Z 22.3978
+
+2 AEFES 2012-09-17T07:00:00Z 22.3978
+
+3 AEFES 2012-09-17T07:15:00Z 22.3978
+
+4 AEFES 2012-09-17T07:30:00Z 22.3978
+
+5 AEFES 2012-09-17T07:45:00Z 22.5649
+
+6 AEFES 2012-09-17T08:00:00Z 22.5649
+
+7 AEFES 2012-09-17T08:15:00Z 22.5649
+
+8 AEFES 2012-09-17T08:30:00Z 22.5649
+
+9 AEFES 2012-09-17T08:45:00Z 22.5649
+
+10 AEFES 2012-09-17T09:00:00Z 22.5649
+
+11 AEFES 2012-09-17T09:15:00Z 22.5649
+
+12 AEFES 2012-09-17T11:00:00Z 22.4815
+
+13 AEFES 2012-09-17T11:15:00Z 22.4815
+
+14 AEFES 2012-09-17T11:30:00Z 22.6485
+
+15 AEFES 2012-09-17T11:45:00Z 22.6485
+
+16 AEFES 2012-09-17T12:00:00Z 22.4815
+
+17 AEFES 2012-09-17T12:15:00Z 22.5649
+
+18 AEFES 2012-09-17T12:30:00Z 22.3141
+
+19 AEFES 2012-09-17T12:45:00Z 22.3978
+
+20 AEFES 2012-09-17T13:00:00Z 22.3978
+
+21 AEFES 2012-09-17T13:15:00Z 22.3141
+
+22 AEFES 2012-09-17T13:30:00Z 22.3978
+
+23 AEFES 2012-09-17T13:45:00Z 22.4815
+
+24 AEFES 2012-09-17T14:00:00Z 22.4815
+
+25 AEFES 2012-09-17T14:15:00Z 22.6485
+
+26 AEFES 2012-09-17T14:30:00Z 22.3141
+
+.
+
+.
+
+.
+
+33330 AEFES 2017-08-17T06:45:00Z 20.6120
+
+33331 AEFES 2017-08-17T07:00:00Z 20.4778
+
+33332 AEFES 2017-08-17T07:15:00Z 20.3820
+
+33333 AEFES 2017-08-17T07:30:00Z 20.4395
+
+$$ reached \'max\' / getOption(\"max.print\") \-- omitted 2814697 rows
+$$
+
+How can I choose the 6 stocks, ensuring:
+
+◦ The data spans at least 2 years for each index.
+
+ChatGPT
+
+To choose 6 stocks with data spanning at least 2 years, you can follow
+these steps:
+
+Calculate the total number of unique timestamps for each stock. This
+will help you determine the data span for each stock.
+
+Filter the stocks that have data spanning at least 2 years. Since there
+are 365 days in a year and 24 hours in a day, you can use this
+information to set a threshold for the number of unique timestamps.
+
+Ensure that you select stocks from at least 3 different sectors.
+
+Once you have a list of stocks that meet the above criteria, you can
+choose 6 of them.
+
+Here's a general outline of the process:
+
+R
+
+Copy code
+
+\# Load necessary libraries (if not already loaded)
+
+library(dplyr)
+
+\# Calculate the total number of unique timestamps for each stock
+
+stock_data \<- stocks %\>%
+
+group_by(short_name) %\>%
+
+summarize(total_timestamps = n_distinct(timestamp))
+
+\# Define the threshold for 2 years of data (adjust as needed)
+
+threshold \<- 365 \* 24 \* 2 \# 2 years of data
+
+\# Filter the stocks with at least 2 years of data
+
+selected_stocks \<- stock_data %\>%
+
+filter(total_timestamps \>= threshold)
+
+\# Select stocks from at least 3 different sectors
+
+\# You will need to know the sectors of the stocks in your data
+
+\# Randomly choose 6 stocks from the filtered list
+
+selected_stocks \<- selected_stocks %\>%
+
+sample_n(6)
+
+\# Print the selected stocks
+
+print(selected_stocks)
+
+Please note that you'll need to have information about the sectors of
+these stocks to ensure they are from different sectors. The code above
+outlines the general process of selecting stocks with at least 2 years
+of data and randomly choosing 6 of them. You may need to adjust the code
+based on the actual sector information in your dataset.
+
+Okay this is the result
+
+\# A tibble: 6 × 2
+
+short_name total_timestamps
+
+\<chr\> \<int\>
+
+1 ISCTR 49221
+
+2 SKBNK 47270
+
+3 AKBNK 49209
+
+4 BRISA 48937
+
+5 BANVT 47951
+
+6 AKSA 48594
+
+ChatGPT
+
+Great! You now have a list of 6 stocks that meet the criteria of having
+at least 2 years of data. To ensure diversity in sectors, you can
+identify the sectors to which these stocks belong and make your final
+selection. Here's a list of the stocks you've selected:
+
+ISCTR (İş Bankası) - Banking sector
+
+SKBNK (Şekerbank) - Banking sector
+
+AKBNK (Akbank) - Banking sector
+
+BRISA - Automotive sector
+
+BANVT (Banvit) - Food sector
+
+AKSA - Industrial sector
+
+Since you've selected stocks from both the banking sector and other
+sectors, you can now proceed with your analysis or investment strategy
+using these 6 stocks.
+
+For each month in your data, generate a boxplot for the chosen indices.
+This visual tool will help you discern any outliers based on the
+Interquartile Range (IQR).
+
+ChatGPT
+
+To generate boxplots for the chosen indices for each month, you can
+follow these steps using R:
+
+Install and load the necessary libraries if you haven't already. You'll
+need ggplot2 and dplyr for this task.
+
+Prepare your data by extracting the month from the timestamp and
+selecting data for the chosen indices.
+
+Create boxplots for each month, allowing you to visualize any outliers
+based on the Interquartile Range (IQR).
+
+Here's a sample code to help you create boxplots for each month:
+
+R
+
+Copy code
+
+\# Install and load necessary libraries if not already installed
+
+install.packages("ggplot2")
+
+library(ggplot2)
+
+library(dplyr)
+
+\# Assuming 'stocks' contains your data
+
+\# Convert the timestamp column to a Date object and extract the month
+
+stocks \<- stocks %\>%
+
+mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+
+month = as.Date(timestamp) %\>% format("%Y-%m"))
+
+\# Select data for the chosen indices
+
+chosen_indices \<- c("ISCTR", "SKBNK", "AKBNK", "BRISA", "BANVT",
+"AKSA")
+
+selected_data \<- stocks %\>% filter(short_name %in% chosen_indices)
+
+\# Create boxplots for each month
+
+ggplot(selected_data, aes(x = month, y = price, group = month)) +
+
+geom_boxplot() +
+
+labs(title = "Monthly Boxplots for Chosen Indices",
+
+x = "Month",
+
+y = "Price") +
+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+This code will generate a series of boxplots, one for each month,
+allowing you to visualize the price distribution and identify any
+outliers based on the Interquartile Range (IQR) for the selected
+indices. Make sure to adjust the code based on the actual structure and
+format of your data, and customize the plot appearance to your
+preferences if needed.
+
+As an alternative approach, employ the 3-sigma rule. Calculate the
+monthly mean and standard deviation for each series, and flag data
+points falling outside the range of (mean - 3standard deviation) and
+(mean + 3standard deviation) as outliers.
+
+ChatGPT
+
+Certainly, you can use the 3-sigma rule to flag data points that fall
+outside the range of (mean - 3 \* standard deviation) and (mean + 3 \*
+standard deviation) as outliers. Here's a step-by-step approach to do
+this:
+
+Calculate the monthly mean and standard deviation for each series
+(stock) based on your data.
+
+Identify data points that fall outside the range of (mean - 3 \*
+standard deviation) and (mean + 3 \* standard deviation) for each stock.
+
+Flag these data points as outliers.
+
+Here's a sample code to perform this analysis in R:
+
+R
+
+Copy code
+
+\# Load necessary libraries (if not already loaded)
+
+library(dplyr)
+
+\# Assuming 'stocks' contains your data
+
+\# Convert the timestamp column to a Date object and extract the month
+
+stocks \<- stocks %\>%
+
+mutate(timestamp = as.POSIXct(timestamp, format = "%Y-%m-%dT%H:%M:%SZ"),
+
+month = as.Date(timestamp) %\>% format("%Y-%m"))
+
+\# Select data for the chosen indices
+
+chosen_indices \<- c("ISCTR", "SKBNK", "AKBNK", "BRISA", "BANVT",
+"AKSA")
+
+selected_data \<- stocks %\>% filter(short_name %in% chosen_indices)
+
+\# Calculate monthly mean and standard deviation for each stock
+
+outliers \<- selected_data %\>%
+
+group_by(short_name, month) %\>%
+
+summarise(
+
+mean_price = mean(price),
+
+sd_price = sd(price)
+
+) %\>%
+
+ungroup() %\>%
+
+mutate(
+
+lower_bound = mean_price - 3 \* sd_price,
+
+upper_bound = mean_price + 3 \* sd_price
+
+)
+
+\# Identify and flag outliers
+
+selected_data \<- selected_data %\>%
+
+left_join(outliers, by = c("short_name", "month")) %\>%
+
+mutate(outlier = price \< lower_bound \| price \> upper_bound)
+
+\# View the data with outliers flagged
+
+print(selected_data)
+
+In this code, we first calculate the monthly mean and standard deviation
+for each series (stock) and then identify and flag the data points that
+fall outside the specified range as outliers. You can adjust this code
+based on the structure and format of your data, and further analyze or
+visualize the outliers as needed.
+
+plot this result
+
+ChatGPT
+
+To visualize the results and plot the data with outliers flagged, you
+can use various plotting libraries in R. Here's an example using ggplot2
+to create a scatter plot with outliers highlighted:
+
+R
+
+Copy code
+
+\# Load necessary libraries (if not already loaded)
+
+library(ggplot2)
+
+\# Assuming 'selected_data' contains your data with outliers flagged
+
+\# Create a scatter plot and highlight outliers
+
+p \<- ggplot(selected_data, aes(x = month, y = price, color = outlier))
++
+
+geom_point() +
+
+facet_wrap(\~short_name, scales = "free_y") +
+
+labs(title = "Scatter Plot of Chosen Indices with Outliers Highlighted",
+
+x = "Month",
+
+y = "Price") +
+
+scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red"))
+
+\# Customize the appearance of the plot if needed
+
+p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+This code creates a scatter plot with points colored to highlight
+outliers (in red) and non-outliers (in blue) for each stock. You can
+further customize the appearance of the plot, such as axis labels,
+titles, and themes, based on your preferences.
+
+Make sure to adjust the code according to the actual structure and
+format of your data if necessary.
+
+hard to see the blue and reds. Dots are too thick
+
+ChatGPT
+
+If you find it difficult to distinguish between the blue and red dots,
+and if the dots are too thick, you can modify the aesthetics and
+appearance of the scatter plot. Here's an updated version of the code
+with thinner and more distinguishable dots:
+
+R
+
+Copy code
+
+\# Load necessary libraries (if not already loaded)
+
+library(ggplot2)
+
+\# Assuming 'selected_data' contains your data with outliers flagged
+
+\# Create a scatter plot with thinner and more distinguishable dots
+
+p \<- ggplot(selected_data, aes(x = month, y = price, color = outlier))
++
+
+geom_point(size = 1) + \# Adjust the size to make the dots thinner
+
+facet_wrap(\~short_name, scales = "free_y") +
+
+labs(title = "Scatter Plot of Chosen Indices with Outliers Highlighted",
+
+x = "Month",
+
+y = "Price") +
+
+scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red"))
+
+\# Customize the appearance of the plot if needed
+
+p + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+In this updated code, we've adjusted the size of the dots to make them
+thinner (size = 1), which should make it easier to distinguish between
+the blue and red dots. You can further customize the plot appearance as
+needed, such as changing the size, shape, or transparency of the points
+to suit your preferences.
+
+Plot them in different pages. I cannot see the red dots and cannot read
+the dates
+
+ChatGPT
+
+If you'd like to create separate plots for each stock and display them
+on different pages to improve visibility, you can generate a series of
+plots, one for each stock, and use the pdf or png device in R to save
+each plot to a separate page in a PDF or image file. This approach will
+also allow you to have better control over the size and layout of each
+plot.
+
+Here's how you can do this:
+
+R
+
+Copy code
+
+\# Load necessary libraries (if not already loaded)
+
+library(ggplot2)
+
+\# Assuming 'selected_data' contains your data with outliers flagged
+
+\# Create separate plots for each stock
+
+stock_names \<- unique(selected_data\$short_name)
+
+for (stock in stock_names) {
+
+stock_data \<- selected_data$$selected_data\$short_name == stock, $$
+
+p \<- ggplot(stock_data, aes(x = month, y = price, color = outlier)) +
+
+geom_point(size = 1) +
+
+labs(title = paste("Scatter Plot for", stock),
+
+x = "Month",
+
+y = "Price") +
+
+scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red")) +
+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+\# Save each plot to a PDF file (change the file name accordingly)
+
+pdf(paste(stock, ".pdf", sep = "\_"))
+
+print(p)
+
+dev.off() \# Close the PDF device
+
+}
+
+In this code, a loop is used to create separate plots for each stock,
+and each plot is saved to a PDF file with a name based on the stock's
+name. This will ensure that each stock's plot is displayed on a separate
+page in the PDF file, improving visibility and readability. You can
+adjust the size, layout, and other parameters as needed.
+
+just plot AKBNK
+
+ChatGPT
+
+If you want to plot data for the "AKBNK" stock specifically, you can
+create a scatter plot for "AKBNK" data with outliers highlighted. Here's
+how you can do it:
+
+R
+
+Copy code
+
+\# Load necessary libraries (if not already loaded)
+
+library(ggplot2)
+
+\# Assuming 'selected_data' contains your data with outliers flagged
+
+\# Filter the data for the "AKBNK" stock
+
+akbnk_data \<- selected_data$$selected_data\$short_name == \"AKBNK\", $$
+
+\# Create a scatter plot for "AKBNK" with thinner and more
+distinguishable dots
+
+p \<- ggplot(akbnk_data, aes(x = month, y = price, color = outlier)) +
+
+geom_point(size = 1) + \# Adjust the size to make the dots thinner
+
+labs(title = "Scatter Plot for AKBNK with Outliers Highlighted",
+
+x = "Month",
+
+y = "Price") +
+
+scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red")) +
+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+\# Display the plot
+
+print(p)
+
+This code specifically filters the data for the "AKBNK" stock and
+creates a scatter plot with thinner and more distinguishable dots. It
+will display the plot in your R environment. You can adjust the plot
+size, appearance, or any other parameters according to your preferences.
+
+it did not plot
+
+ChatGPT
+
+I apologize for the oversight. It seems there might have been an issue
+with rendering the plot directly in this text-based interface. To create
+a plot for "AKBNK" and display it, you can use R in your local
+environment. Here's the code to generate and display the plot in R:
+
+R
+
+Copy code
+
+\# Load necessary libraries (if not already loaded)
+
+library(ggplot2)
+
+\# Assuming 'selected_data' contains your data with outliers flagged
+
+\# Filter the data for the "AKBNK" stock
+
+akbnk_data \<- selected_data$$selected_data\$short_name == \"AKBNK\", $$
+
+\# Create a scatter plot for "AKBNK" with thinner and more
+distinguishable dots
+
+p \<- ggplot(akbnk_data, aes(x = month, y = price, color = outlier)) +
+
+geom_point(size = 1) + \# Adjust the size to make the dots thinner
+
+labs(title = "Scatter Plot for AKBNK with Outliers Highlighted",
+
+x = "Month",
+
+y = "Price") +
+
+scale_color_manual(values = c("FALSE" = "blue", "TRUE" = "red")) +
+
+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+\# Display the plot in your local R environment
+
+print(p)
+
+Copy and paste this code into your R environment, and it should generate
+and display the scatter plot for "AKBNK" with outliers highlighted.
+
+Nice.
+
+ChatGPT
+
+I'm glad it worked for you! If you have any more questions or need
+further assistance, feel free to ask. Happy data analysis!
+
+**REFERENCES**
+
+-   [**https://borsaistanbul.com/tr/**](https://borsaistanbul.com/tr/)
+
+-   [**https://www.paraborsa.net/hisse-yorumlari/skbnk-sekerbank-hisse-yorumlari/**](https://www.paraborsa.net/hisse-yorumlari/skbnk-sekerbank-hisse-yorumlari/)
+
+-   [**https://www.tuyid.org/files/yayinlar/Borsa_Trendleri_Raporu_XV.pdf**](https://www.tuyid.org/files/yayinlar/Borsa_Trendleri_Raporu_XV.pdf)
+
+-   [**https://ekonomi.isbank.com.tr/tr/Sayfalar/ekonomik-buyume.aspx**](https://ekonomi.isbank.com.tr/tr/Sayfalar/ekonomik-buyume.aspx)
+
+-   [**https://www.lassa.com.tr/brisa-2012-yilinin-ocak---eylul-doneminde-yuzde-9-buyudu**](https://www.lassa.com.tr/brisa-2012-yilinin-ocak---eylul-doneminde-yuzde-9-buyudu)
+
+-   [**https://subconturkey.com.tr/brisa-inovasyon-214dullerine-bir-yenisini-daha-ekledi/**](https://subconturkey.com.tr/brisa-inovasyon-214dullerine-bir-yenisini-daha-ekledi/)
+
+-   [**https://subconturkey.com.tr/brisa-2013un-ilk-dokuz-ayinda-net-karini-yuzde-105-artirdi/**](https://subconturkey.com.tr/brisa-2013un-ilk-dokuz-ayinda-net-karini-yuzde-105-artirdi/)
+
+-   [**https://www.sozcu.com.tr/2018/ekonomi/brisadan-satis-rekoru-2383390/**](https://www.sozcu.com.tr/2018/ekonomi/brisadan-satis-rekoru-2383390/)
+
+-   [**https://www.dunya.com/finans/haberler/2018in-piyasa-karnesi-haberi-436196**](https://www.dunya.com/finans/haberler/2018in-piyasa-karnesi-haberi-436196)
+
+-   [**https://bigpara.hurriyet.com.tr/haberler/ekonomi-haberleri/aksa-akrilik-kapasite-azaltimini-yukseltti-hisseler-geriledi_ID1449349/**](https://bigpara.hurriyet.com.tr/haberler/ekonomi-haberleri/aksa-akrilik-kapasite-azaltimini-yukseltti-hisseler-geriledi_ID1449349/)
+
+-   [**https://www.aksa.com/ca/docs/9251AF38AD844110BB950E373C5C19/32C1BED897C04D598995F3D5A080DA7E.pdf**](https://www.aksa.com/ca/docs/9251AF38AD844110BB950E373C5C19/32C1BED897C04D598995F3D5A080DA7E.pdf)
