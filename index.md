@@ -1,6 +1,6 @@
 ## Welcome to Zeynep Sude Aksoy's Github Pages
 
-Our Project 1 html file: file:///C:/Users/Zeynep%20Sude%20Aksoy/OneDrive/Masa%C3%BCst%C3%BC/ie%20423%20project/IE-423-Project-Part-1_FinalVersion.html
+Our Project 1 html file: /Users/Zeynep%20Sude%20Aksoy/OneDrive/Masa%C3%BCst%C3%BC/ie%20423%20project/IE-423-Project-Part-1_FinalVersion.html
 
 You can use the [editor on GitHub](https://github.com/BU-IE-423/fall-23-ilaydacelenkk/edit/main/index.md) to maintain and preview the content for your website in Markdown files.
 
