@@ -2,7 +2,7 @@
 
 Our Project 1 html file:  [HW part1](https://bu-ie-423.github.io/fall-23-zeynepsudeaksoyy/IE-423-Project-Part-1_FinalVersion.html)
 
-Our Project 2 html file: [HW part2](https://github.com/BU-IE-423/fall-23-zeynepsudeaksoyy/blob/main/423-Project-Part2_final.html)
+Our Project 2 html file: [HW part2](https://bu-ie-423.github.io/fall-23-zeynepsudeaksoyy/423-Project-Part2_final.html)
 
 You can use the [editor on GitHub](https://github.com/BU-IE-423/fall-23-ilaydacelenkk/edit/main/index.md) to maintain and preview the content for your website in Markdown files.
 
