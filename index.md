@@ -4,6 +4,8 @@ Our Project 1 html file:  [HW part1](https://bu-ie-423.github.io/fall-23-zeyneps
 
 Our Project 2 html file: [HW part2](https://bu-ie-423.github.io/fall-23-zeynepsudeaksoyy/423-Project-Part2_final.html)
 
+Our Project 3 html file: [HW part3](https://bu-ie-423.github.io/fall-23-zeynepsudeaksoyy/Project-3-Final.html)
+
 You can use the [editor on GitHub](https://github.com/BU-IE-423/fall-23-ilaydacelenkk/edit/main/index.md) to maintain and preview the content for your website in Markdown files.
 
 Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
